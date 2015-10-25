@@ -1,0 +1,117 @@
+---
+title       : What's for dinner?
+subtitle    : A web application for finding your next favorite food
+author      : Kevin Hatala
+job         : JHU Developing Data Products course project
+framework   : io2012        # {io2012, html5slides, shower, dzslides, ...}
+highlighter : highlight.js  # {highlight.js, prettify, highlight}
+hitheme     : tomorrow      # 
+widgets     : []            # {mathjax, quiz, bootstrap}
+mode        : standalone # {standalone, draft}
+knit        : slidify::knit2slides
+---
+
+## Why?
+
+Some people are hesitant to try foods that are unfamiliar to them. This app finds people with similar taste preferences to your own, and shows you how those people rate a wide diversity of cuisines. If people with similar tastes to your own seem to like a variety of food that you've never tried, maybe you should give it a shot!
+
+--- .class #id 
+
+## What kinds of food do you like?
+
+A user answers a brief survey of how they rate the 9 [most popular](http://blogs.voanews.com/all-about-america/2015/05/18/top-10-most-popular-ethnic-cuisines-in-us/) ethnic cuisines in the United States, as well as American food itself. For example, a user could rate these cuisines as shown in the plot here:
+
+``` {r, echo=FALSE}
+library(ggplot2)
+ratings<-c(3,4,2,3,5,4,3,2,1,3)
+cuisines<-c("Chinese","Mexican","Italian","Japanese","Greek","French","Thai","Spanish","Indian","American")
+yourRatingsTable<-cbind(as.data.frame(yourRatings),as.data.frame(cuisines))
+colnames(yourRatingsTable)<-c("Rating","Cuisine")
+yourRatingsTable$Cuisine<-factor(as.character(yourRatingsTable$Cuisine))
+ggplot(yourRatingsTable,aes(x=factor(Cuisine),y=Rating))+
+        stat_summary(fun.y=mean,geom="bar")+
+        ylab("Rating")+
+        ylim(0,5)+
+        ggtitle("Your Ratings")+
+        theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.25),axis.title.x=element_blank(),
+              plot.title=element_text(lineheight=.8,face="bold"))
+
+```
+
+---
+
+## How does everyone else feel?
+
+We'll then show you how all of the people in our dataset feel about those same 10 cuisines. We'll show a similar plot to the previous, but with the average ratings from the 1373 people who took the same survey:
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+food<-read.csv("foodRatingsClean.csv")
+otherRatings<-food[,c("China","Mexico","Italy","Japan","Greece","France","Thailand","Spain","India","United.States")]
+library(reshape2)
+otherRatings<-melt(otherRatings)
+colnames(otherRatings)<-c("Cuisine","Rating")
+otherRatings<-na.omit(otherRatings)
+otherRatings$Rating<-as.numeric(otherRatings$Rating)
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="China"]<-"Chinese"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="Mexico"]<-"Mexican"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="Italy"]<-"Italian"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="Japan"]<-"Japanese"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="Greece"]<-"Greek"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="France"]<-"French"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="Thailand"]<-"Thai"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="Spain"]<-"Spanish"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="India"]<-"Indian"
+levels(otherRatings$Cuisine)[levels(otherRatings$Cuisine)=="United.States"]<-"American"
+otherRatings$Cuisine<-factor(as.character(otherRatings$Cuisine))
+library(ggplot2)
+ggplot(otherRatings,aes(x=factor(Cuisine),y=Rating))+
+        stat_summary(fun.y=mean,geom="bar")+
+        ylab("Rating")+
+        ylim(0,5)+
+        ggtitle("Average Ratings for All People Surveyed")+
+        theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.25),axis.title.x=element_blank(),
+              plot.title=element_text(lineheight=.8,face="bold"))
+```
+
+---
+
+## What other foods might you like?
+
+Finally, we'll do some 'behind the scenes' calculations to find the 25 people in our database with taste preferences most similar to your own. We'll show you then how they rate a wide variety of cuisines from around the world. If you see a highly-rated food that you've never tried, give it a shot!
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+food<-read.csv("foodRatingsClean.csv")
+yourRatings<-c(3,4,2,3,5,4,3,2,1,3)
+completeOthers<-food[complete.cases(food[,c("China","Mexico","Italy","Japan","Greece","France","Thailand","Spain","India","United.States")]),]
+completeOthersRatings<-completeOthers[,c("China","Mexico","Italy","Japan","Greece","France","Thailand","Spain","India","United.States")]
+distances<-NULL
+for (i in 1:dim(completeOthersRatings)[1]){
+  obs<-completeOthersRatings[i,]
+  mat<-rbind(obs,yourRatings)
+  distance<-dist(mat,method="euclidean")
+  distances<-c(distances,distance)
+}
+indices<-order(distances)[1:25]
+ids<-completeOthers[indices,]$ID
+userSubset<-food[(food$ID %in% ids),]
+subsetRatings<-userSubset[,-c(35,25,22,24,19,16,37,31,36,33)]
+subsetRatings<-subsetRatings[,-c(1,2,33:38)]
+library(reshape2)
+subsetRatings<-melt(subsetRatings)
+colnames(subsetRatings)<-c("Cuisine","Rating")
+subsetRatings$Cuisine<-factor(as.character(subsetRatings$Cuisine))
+subsetRatings$Rating<-as.numeric(subsetRatings$Rating)
+library(ggplot2)
+ggplot(subsetRatings,aes(x=factor(Cuisine),y=Rating))+
+  stat_summary(fun.y=mean,geom="bar")+
+  ylab("Rating")+
+  ylim(0,5)+
+  ggtitle("25 Most Similar Eaters' Ratings of Other Cuisines")+
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.25),axis.title.x=element_blank(),
+        plot.title=element_text(lineheight=.8,face="bold"))
+
+```
+
+
+
+
